@@ -489,3 +489,41 @@ def conv_(lib):
     lib.infiniopDestroyConvDescriptor.argtypes = [
         infiniopOperatorDescriptor_t,
     ]
+
+@OpRegister.operator
+def awq_dequantize_(lib):
+    lib.infiniopCreateAWQDequantizeDescriptor.restype = c_int32
+    lib.infiniopCreateAWQDequantizeDescriptor.argtypes = [
+        infiniopHandle_t,
+        POINTER(infiniopOperatorDescriptor_t),
+        infiniopTensorDescriptor_t,  # y_desc
+        infiniopTensorDescriptor_t,  # qweight_desc
+        infiniopTensorDescriptor_t,  # zeros_desc
+        infiniopTensorDescriptor_t,  # scales_desc
+        c_int32,                     # group_size
+    ]
+
+    lib.infiniopGetAWQDequantizeWorkspaceSize.restype = c_int32
+    lib.infiniopGetAWQDequantizeWorkspaceSize.argtypes = [
+        infiniopOperatorDescriptor_t,
+        POINTER(c_size_t),
+    ]
+
+    lib.infiniopAWQDequantize.restype = c_int32
+    lib.infiniopAWQDequantize.argtypes = [
+        infiniopOperatorDescriptor_t,
+        c_void_p,  # workspace
+        c_size_t,   # workspace_size
+        c_void_p,   # y
+        c_void_p,   # qweight
+        c_void_p,   # zeros
+        c_void_p,   # scales
+        c_void_p,   # stream
+    ]
+
+    lib.infiniopDestroyAWQDequantizeDescriptor.restype = c_int32
+    lib.infiniopDestroyAWQDequantizeDescriptor.argtypes = [
+        infiniopOperatorDescriptor_t,
+    ]
+
+    
