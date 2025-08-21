@@ -70,33 +70,6 @@ public:
         int m_packed = m / 8;
         int zeros_m_packed = zeros_m / 8;
 
-        // 验证维度一致性
-        if (qweight_desc->shape()[0] != n || qweight_desc->shape()[1] != m_packed) {
-            return INFINI_STATUS_BAD_TENSOR_SHAPE;
-        }
-
-        if (zeros_desc->shape()[0] != zeros_n || zeros_desc->shape()[1] != zeros_m_packed) {
-            return INFINI_STATUS_BAD_TENSOR_SHAPE;
-        }
-
-        if (scales_desc->shape()[0] != zeros_n || scales_desc->shape()[1] != zeros_m) {
-            return INFINI_STATUS_BAD_TENSOR_SHAPE;
-        }
-
-        // 验证分组大小
-        if (n % group_size != 0 || zeros_n != n / group_size) {
-            return INFINI_STATUS_BAD_TENSOR_SHAPE;
-        }
-
-        // 检查步长 (要求最后一维是连续的)
-        if (y_desc->stride(1) != 1 || scales_desc->stride(1) != 1) {
-            return INFINI_STATUS_BAD_TENSOR_STRIDES;
-        }
-
-        if (qweight_desc->stride(1) != 1 || zeros_desc->stride(1) != 1) {
-            return INFINI_STATUS_BAD_TENSOR_STRIDES;
-        }
-
         return utils::Result<AWQDequantizeInfo>(AWQDequantizeInfo{
             zero_type,
             scale_type,

@@ -4,8 +4,8 @@
 #include <cuda_fp16.h>
 
 // 预定义的重新排序模式
-constexpr int AWQ_REVERSE_ORDER[8] = {0, 4, 1, 5, 2, 6, 3, 7};
-
+__constant__ int AWQ_REVERSE_ORDER[8] = {0, 4, 1, 5, 2, 6, 3, 7};
+__constant__ int AWQ_REVERSE_ORDER2[8] = {0, 2, 4, 6, 1, 3, 5, 7};
 // 解包和重新排序零点值的核函数
 template <unsigned int BLOCK_SIZE, typename Tzero>
 __device__ void unpackZerosBlock(
@@ -26,7 +26,7 @@ __device__ void unpackZerosBlock(
     
     // 解包并重新排序
     for (int i = 0; i < 8; i++) {
-        int target_pos = col * 8 + AWQ_REVERSE_ORDER[i];
+        int target_pos = col * 8 + AWQ_REVERSE_ORDER2[i];
         Tzero value = (packed >> (i * 4)) & 0xF;
         unpacked_zeros[row * zeros_m + target_pos] = value;
     }
@@ -68,7 +68,7 @@ __device__ void awqDequantizeBlock(
     Tscale scale_val = scales[group_idx * m + col];
     
     // 计算反量化值
-    y[row * m + col] = Tdata((weight_val - zero_val) * scale_val);
+    y[row * m + col] = Tdata(weight_val - zero_val) * Tdata(scale_val);
 }
 
 #endif  // __AWQ_DEQUANTIZE_CUDA_KERNEL_H__

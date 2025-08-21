@@ -67,9 +67,19 @@ class TestTensor(CTensor):
             else:
                 torch_shape.append(shape[i])
         if mode == "random":
-            self._torch_tensor = torch.rand(
-                torch_shape, dtype=to_torch_dtype(dt), device=torch_device_map[device]
-            )
+            # 根据数据类型选择不同的随机生成方法
+            if to_torch_dtype(dt).is_floating_point:
+                self._torch_tensor = torch.rand(
+                    torch_shape, dtype=to_torch_dtype(dt), device=torch_device_map[device]
+                )
+            else:
+                # 对于整数类型，使用randint生成随机整数
+                self._torch_tensor = torch.randint(
+                    low=0, high=2**31-1,  # 设置合适的整数范围
+                    size=torch_shape, 
+                    dtype=to_torch_dtype(dt), 
+                    device=torch_device_map[device]
+                )
         elif mode == "zeros":
             self._torch_tensor = torch.zeros(
                 torch_shape, dtype=to_torch_dtype(dt), device=torch_device_map[device]

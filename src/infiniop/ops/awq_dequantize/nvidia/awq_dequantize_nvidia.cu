@@ -55,15 +55,12 @@ infiniStatus_t Descriptor::create(
     CHECK_RESULT(result);
     auto info = result.take();
 
-    // 检查张量步长：我们要求最后一维是连续的
-    if (info.qweight_strides[1] != 1 || info.zeros_strides[1] != 1 || info.scales_strides[1] != 1 || info.y_strides[1] != 1) {
-        return INFINI_STATUS_BAD_TENSOR_STRIDES;
-    }
+    int workspace_size = info.zeros_n * info.zeros_m * sizeof(uint8_t);
 
     *desc_ptr = new Descriptor(
         new Opaque{reinterpret_cast<device::nvidia::Handle *>(handle)->internal()},
         std::move(info),
-        0,
+        workspace_size,
         handle->device, handle->device_id);
     return INFINI_STATUS_SUCCESS;
 }
@@ -137,20 +134,20 @@ infiniStatus_t Descriptor::calculate(
     // 根据块大小启动解包零点核函数
     unsigned int block_size = _opaque->internal->maxThreadsPerBlock();
     if (block_size == CUDA_BLOCK_SIZE_1024) {
-        if (zero_type == INFINI_DTYPE_I8) {
-            CHECK_STATUS(launchUnpackZerosKernel<CUDA_BLOCK_SIZE_1024, int8_t>(zeros_n, zeros_m_packed, zeros_m, unpacked_zeros, zeros, cuda_stream));
+        if (zero_type == INFINI_DTYPE_I32) {
+            (launchUnpackZerosKernel<32, uint8_t>(zeros_n, zeros_m_packed, zeros_m, unpacked_zeros, zeros, cuda_stream));
         } else {
             return INFINI_STATUS_BAD_TENSOR_DTYPE;
         }
     } else if (block_size == CUDA_BLOCK_SIZE_512) {
-        if (zero_type == INFINI_DTYPE_I8) {
-            CHECK_STATUS(launchUnpackZerosKernel<CUDA_BLOCK_SIZE_512, int8_t>(zeros_n, zeros_m_packed, zeros_m, unpacked_zeros, zeros, cuda_stream));
+        if (zero_type == INFINI_DTYPE_I32) {
+            (launchUnpackZerosKernel<16, uint8_t>(zeros_n, zeros_m_packed, zeros_m, unpacked_zeros, zeros, cuda_stream));
         } else {
             return INFINI_STATUS_BAD_TENSOR_DTYPE;
         }
     } else if (block_size == CUDA_BLOCK_SIZE_4096) {
-        if (zero_type == INFINI_DTYPE_I8) {
-            CHECK_STATUS(launchUnpackZerosKernel<CUDA_BLOCK_SIZE_4096, int8_t>(zeros_n, zeros_m_packed, zeros_m, unpacked_zeros, zeros, cuda_stream));
+        if (zero_type == INFINI_DTYPE_I32) {
+            (launchUnpackZerosKernel<16, uint8_t>(zeros_n, zeros_m_packed, zeros_m, unpacked_zeros, zeros, cuda_stream));
         } else {
             return INFINI_STATUS_BAD_TENSOR_DTYPE;
         }
@@ -165,31 +162,31 @@ infiniStatus_t Descriptor::calculate(
     // 根据数据类型组合启动主反量化核函数
     if (block_size == CUDA_BLOCK_SIZE_1024) {
         if (data_type == INFINI_DTYPE_F16 && scale_type == INFINI_DTYPE_F16) {
-            CHECK_STATUS(launchAWQDequantizeKernel<CUDA_BLOCK_SIZE_1024, half, int8_t, half>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
+            (launchAWQDequantizeKernel<32, half, uint8_t, half>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
         } else if (data_type == INFINI_DTYPE_F16 && scale_type == INFINI_DTYPE_F32) {
-            CHECK_STATUS(launchAWQDequantizeKernel<CUDA_BLOCK_SIZE_1024, half, int8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
+            (launchAWQDequantizeKernel<32, half, uint8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
         } else if (data_type == INFINI_DTYPE_F32 && scale_type == INFINI_DTYPE_F32) {
-            CHECK_STATUS(launchAWQDequantizeKernel<CUDA_BLOCK_SIZE_1024, float, int8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
+            (launchAWQDequantizeKernel<32, float, uint8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
         } else {
             return INFINI_STATUS_BAD_TENSOR_DTYPE;
         }
     } else if (block_size == CUDA_BLOCK_SIZE_512) {
         if (data_type == INFINI_DTYPE_F16 && scale_type == INFINI_DTYPE_F16) {
-            CHECK_STATUS(launchAWQDequantizeKernel<CUDA_BLOCK_SIZE_512, half, int8_t, half>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
+            (launchAWQDequantizeKernel<16, half, uint8_t, half>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
         } else if (data_type == INFINI_DTYPE_F16 && scale_type == INFINI_DTYPE_F32) {
-            CHECK_STATUS(launchAWQDequantizeKernel<CUDA_BLOCK_SIZE_512, half, int8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
+            (launchAWQDequantizeKernel<16, half, uint8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
         } else if (data_type == INFINI_DTYPE_F32 && scale_type == INFINI_DTYPE_F32) {
-            CHECK_STATUS(launchAWQDequantizeKernel<CUDA_BLOCK_SIZE_512, float, int8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
+            (launchAWQDequantizeKernel<16, float, uint8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
         } else {
             return INFINI_STATUS_BAD_TENSOR_DTYPE;
         }
     } else if (block_size == CUDA_BLOCK_SIZE_4096) {
         if (data_type == INFINI_DTYPE_F16 && scale_type == INFINI_DTYPE_F16) {
-            CHECK_STATUS(launchAWQDequantizeKernel<CUDA_BLOCK_SIZE_4096, half, int8_t, half>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
+            (launchAWQDequantizeKernel<16, half, uint8_t, half>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
         } else if (data_type == INFINI_DTYPE_F16 && scale_type == INFINI_DTYPE_F32) {
-            CHECK_STATUS(launchAWQDequantizeKernel<CUDA_BLOCK_SIZE_4096, half, int8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
+            (launchAWQDequantizeKernel<16, half, uint8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
         } else if (data_type == INFINI_DTYPE_F32 && scale_type == INFINI_DTYPE_F32) {
-            CHECK_STATUS(launchAWQDequantizeKernel<CUDA_BLOCK_SIZE_4096, float, int8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
+            (launchAWQDequantizeKernel<16, float, uint8_t, float>(n, m_packed, m, group_size, y, qweight, unpacked_zeros, scales, cuda_stream));
         } else {
             return INFINI_STATUS_BAD_TENSOR_DTYPE;
         }

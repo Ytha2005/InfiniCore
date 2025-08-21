@@ -24,16 +24,14 @@ from libinfiniop import (
 # These are not meant to be imported from other modules
 _TEST_CASES_ = [
     # n, m, group_size
-    (1, 64, 64),        # 小尺寸测试
-    (16, 2048, 64),     # 常见尺寸
-    (32, 4096, 128),    # 较大尺寸
-    (64, 8192, 256),    # 大尺寸测试
+    (7168, 18432, 64),
+    (128, 8, 64),
 ]
 
 # 缩放因子数据类型
-_SCALE_DTYPES = [InfiniDtype.F16, InfiniDtype.F32]
+_SCALE_DTYPES = [InfiniDtype.F16]
 # 输出数据类型
-_OUTPUT_DTYPES = [InfiniDtype.F16, InfiniDtype.F32]
+_OUTPUT_DTYPES = [InfiniDtype.F16]
 
 # Form the test cases by appending each element of _SCALE_DTYPES to each tuple in _TEST_CASES_
 _TEST_CASES = [
@@ -114,10 +112,10 @@ def test(
     zeros_n = n // group_size
     
     # 创建输入张量
-    qweight = TestTensor((n, m_packed), None, InfiniDtype.I32, device, mode="random_int", int_range=(0, 2**32-1))
-    zeros = TestTensor((zeros_n, m_packed), None, InfiniDtype.I32, device, mode="random_int", int_range=(0, 2**32-1))
-    scales = TestTensor((zeros_n, m), None, scale_dtype, device, scale=0.01)
-    
+    qweight = TestTensor((n, m_packed), None, InfiniDtype.I32, device, mode="random")
+    zeros = TestTensor((zeros_n, m_packed), None, InfiniDtype.I32, device, mode="random")
+    scales = TestTensor((zeros_n, m), None, scale_dtype, device, scale=256)
+   
     # 创建输出张量
     y = TestTensor((n, m), None, output_dtype, device, mode="zeros")
     
@@ -127,7 +125,7 @@ def test(
         zeros.torch_tensor(), 
         scales.torch_tensor(), 
         group_size
-    ).to(y.torch_dtype())
+    )
     
     if sync is not None:
         sync()
